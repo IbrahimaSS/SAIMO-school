@@ -11,6 +11,7 @@ export interface EtablissementRow {
   pays: string;
   actif: boolean;
   nbEleves: number;
+  nbEnseignants: number;
   nbCycles: number;
   limiteCycles: number;
   createdAt: string;
@@ -25,7 +26,7 @@ export async function listerEtablissements(): Promise<EtablissementRow[]> {
   const etablissements = await prisma.etablissement.findMany({
     orderBy: { createdAt: "desc" },
     include: {
-      _count: { select: { eleves: true, cycles: true } },
+      _count: { select: { eleves: true, cycles: true, enseignants: true } },
       utilisateurs: {
         where: { role: "ADMIN_ETABLISSEMENT" },
         take: 1,
@@ -44,6 +45,7 @@ export async function listerEtablissements(): Promise<EtablissementRow[]> {
       pays: e.pays,
       actif: e.actif,
       nbEleves: e._count.eleves,
+      nbEnseignants: e._count.enseignants,
       nbCycles: e._count.cycles,
       limiteCycles: e.limiteCycles,
       createdAt: e.createdAt.toISOString(),

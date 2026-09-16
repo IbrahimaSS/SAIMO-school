@@ -203,3 +203,110 @@ export async function actionModifierLimiteCycles(
     return { succes: false, erreur: msg(e) };
   }
 }
+
+const schemaModifierEtablissement = z.object({
+  nom: z.string().min(2, "Nom requis").max(150),
+  ville: z.string().max(100).optional(),
+  pays: z.string().min(2).max(100),
+});
+
+export async function actionModifierEtablissement(
+  id: string,
+  formData: FormData,
+): Promise<ActionResult> {
+  try {
+    const ctx = await requireSuperAdmin();
+
+    const parsed = schemaModifierEtablissement.safeParse({
+      nom: s(formData.get("nom")),
+      ville: s(formData.get("ville")),
+      pays: s(formData.get("pays")) ?? "Guinée",
+    });
+    if (!parsed.success) {
+      return { succes: false, erreur: parsed.error.issues[0]?.message ?? "Données invalides" };
+    }
+
+    await prisma.etablissement.update({
+      where: { id },
+      data: { nom: parsed.data.nom, ville: parsed.data.ville, pays: parsed.data.pays },
+    });
+
+    await audit({
+      utilisateurId: ctx.utilisateurId,
+      etablissementId: id,
+      action: AuditAction.UPDATE,
+      entite: AuditEntite.ETABLISSEMENT,
+      entiteId: id,
+      apres: parsed.data,
+    });
+
+    revalidatePath("/saimo-admin");
+    return { succes: true, data: undefined };
+  } catch (e) {
+    return { succes: false, erreur: msg(e) };
+  }
+}
+
+export async function actionRenvoyerInvitation(id: string): Promise<ActionResult> {
+  try {
+    const ctx = await requireSuperAdmin();
+
+    const etablissement = await prisma.etablissement.findUnique({ where: { id } });
+    if (!etablissement) return { succes: false, erreur: "Établissement introuvable" };
+
+    const lien = await prisma.utilisateurEtablissement.findFirst({
+      where: { etablissementId: id, role: "ADMIN_ETABLISSEMENT" },
+      include: { utilisateur: true },
+    });
+    if (!lien) return { succes: false, erreur: "Aucun administrateur pour cet établissement" };
+    if (lien.utilisateur.motDePasseHash) {
+      return { succes: false, erreur: "Ce compte est déjà activé" };
+    }
+
+    const token = randomBytes(24).toString("hex");
+    const expireAt = new Date(Date.now() + DUREE_INVITATION_MS);
+
+    const invitationExistante = await prisma.invitation.findFirst({
+      where: { etablissementId: id, email: lien.utilisateur.email, accepteAt: null },
+    });
+    if (invitationExistante) {
+      await prisma.invitation.update({
+        where: { id: invitationExistante.id },
+        data: { token, expireAt },
+      });
+    } else {
+      await prisma.invitation.create({
+        data: {
+          email: lien.utilisateur.email,
+          role: "ADMIN_ETABLISSEMENT",
+          etablissementId: id,
+          token,
+          expireAt,
+          invitePar: ctx.utilisateurId,
+        },
+      });
+    }
+
+    await envoyerInvitation({
+      email: lien.utilisateur.email,
+      prenom: lien.utilisateur.prenom,
+      etablissementNom: etablissement.nom,
+      lienInvitation: appUrl(`/invitation/${token}`),
+      etablissementId: id,
+    });
+
+    await audit({
+      utilisateurId: ctx.utilisateurId,
+      etablissementId: id,
+      action: AuditAction.INVITE,
+      entite: AuditEntite.ETABLISSEMENT,
+      entiteId: id,
+      apres: { email: lien.utilisateur.email },
+    });
+
+    revalidatePath("/saimo-admin");
+    return { succes: true, data: undefined };
+  } catch (e) {
+    return { succes: false, erreur: msg(e) };
+  }
+}

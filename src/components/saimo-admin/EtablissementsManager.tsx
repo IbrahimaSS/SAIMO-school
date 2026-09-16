@@ -3,13 +3,18 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Building2, Ban, RotateCcw, Mail, Clock, GraduationCap, ShieldCheck, Layers, Pencil } from "lucide-react";
+import {
+  Plus, Building2, Ban, RotateCcw, Mail, Clock, GraduationCap, ShieldCheck,
+  Layers, Pencil, Send, Users,
+} from "lucide-react";
 import type { EtablissementRow } from "@/server/dal/saimo-admin";
 import {
   actionCreerEtablissement,
   actionSuspendreEtablissement,
   actionReactiverEtablissement,
   actionModifierLimiteCycles,
+  actionModifierEtablissement,
+  actionRenvoyerInvitation,
 } from "@/server/actions/saimo-admin";
 import { Modale, Champ, Err, ModalActions } from "@/components/portal/_ui";
 import { formatDateCourte } from "@/lib/format";
@@ -26,6 +31,9 @@ export function EtablissementsManager({
   const [confirmSuspension, setConfirmSuspension] = useState<EtablissementRow | null>(null);
   const [editLimite, setEditLimite] = useState<EtablissementRow | null>(null);
   const [erreurLimite, setErreurLimite] = useState("");
+  const [editEtab, setEditEtab] = useState<EtablissementRow | null>(null);
+  const [erreurEtab, setErreurEtab] = useState("");
+  const [envoiId, setEnvoiId] = useState<string | null>(null);
 
   const creer = (fd: FormData) => {
     setErreur("");
@@ -69,6 +77,24 @@ export function EtablissementsManager({
       bg: "bg-amber-50",
       fg: "text-amber-600",
     },
+    {
+      icon: Users,
+      label: "Enseignants (total)",
+      value: etablissements.reduce((s, e) => s + e.nbEnseignants, 0),
+      bg: "bg-indigo-50",
+      fg: "text-indigo-600",
+    },
+    {
+      icon: Plus,
+      label: "Créés ce mois-ci",
+      value: etablissements.filter((e) => {
+        const d = new Date(e.createdAt);
+        const now = new Date();
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      }).length,
+      bg: "bg-rose-50",
+      fg: "text-rose-600",
+    },
   ];
 
   const modifierLimite = (fd: FormData) => {
@@ -82,6 +108,30 @@ export function EtablissementsManager({
         setEditLimite(null);
         router.refresh();
       }
+    });
+  };
+
+  const modifierEtablissement = (fd: FormData) => {
+    if (!editEtab) return;
+    setErreurEtab("");
+    startTransition(async () => {
+      const r = await actionModifierEtablissement(editEtab.id, fd);
+      if (!r.succes) setErreurEtab(r.erreur);
+      else {
+        toast.success("Établissement mis à jour");
+        setEditEtab(null);
+        router.refresh();
+      }
+    });
+  };
+
+  const renvoyerInvitation = (id: string) => {
+    setEnvoiId(id);
+    startTransition(async () => {
+      const r = await actionRenvoyerInvitation(id);
+      setEnvoiId(null);
+      if (!r.succes) toast.error(r.erreur);
+      else toast.success("Invitation renvoyée");
     });
   };
 
@@ -121,7 +171,7 @@ export function EtablissementsManager({
         </button>
       </div>
 
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
         {stats.map((s) => (
           <div
             key={s.label}
@@ -157,11 +207,21 @@ export function EtablissementsManager({
               <tr key={e.id} className="transition hover:bg-neutral-50">
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-2">
-                    <Building2 className="h-4 w-4 text-neutral-400" />
+                    <Building2 className="h-4 w-4 text-neutral-400 flex-shrink-0" />
                     <div>
                       <p className="text-sm font-bold text-neutral-900">{e.nom}</p>
                       <span className="text-xs text-neutral-500">{e.code}</span>
                     </div>
+                    <button
+                      onClick={() => {
+                        setErreurEtab("");
+                        setEditEtab(e);
+                      }}
+                      className="ml-1 text-neutral-300 hover:text-violet-600"
+                      title="Modifier l'établissement"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
                   </div>
                 </td>
                 <td className="px-6 py-4 text-sm text-neutral-700">
@@ -185,9 +245,18 @@ export function EtablissementsManager({
                 <td className="px-6 py-4">
                   <p className="text-sm text-neutral-700">{e.adminEmail ?? "—"}</p>
                   {e.adminInvitationEnAttente && (
-                    <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
-                      <Mail className="h-3 w-3" /> Invitation en attente
-                    </span>
+                    <div className="mt-1 flex items-center gap-1.5">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                        <Mail className="h-3 w-3" /> Invitation en attente
+                      </span>
+                      <button
+                        onClick={() => renvoyerInvitation(e.id)}
+                        disabled={envoiId === e.id}
+                        className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                      >
+                        <Send className="h-2.5 w-2.5" /> Renvoyer
+                      </button>
+                    </div>
                   )}
                 </td>
                 <td className="px-6 py-4 text-sm text-neutral-500">{formatDateCourte(e.createdAt)}</td>
@@ -311,6 +380,27 @@ export function EtablissementsManager({
             <ModalActions
               onCancel={() => setConfirmSuspension(null)}
               label={confirmSuspension.actif ? "Confirmer la suspension" : "Confirmer la réactivation"}
+              pending={isPending}
+            />
+          </form>
+        </Modale>
+      )}
+
+      {editEtab && (
+        <Modale titre="Modifier l'établissement" onClose={() => setEditEtab(null)}>
+          <form action={modifierEtablissement} className="space-y-4">
+            <Champ label="Nom de l'établissement" name="nom" defaultValue={editEtab.nom} required />
+            <div className="grid grid-cols-2 gap-4">
+              <Champ label="Ville" name="ville" defaultValue={editEtab.ville ?? ""} />
+              <Champ label="Pays" name="pays" defaultValue={editEtab.pays} required />
+            </div>
+            <p className="text-xs text-neutral-500">
+              Le code (<strong>{editEtab.code}</strong>) n&rsquo;est pas modifiable.
+            </p>
+            {erreurEtab && <Err msg={erreurEtab} />}
+            <ModalActions
+              onCancel={() => setEditEtab(null)}
+              label="Enregistrer"
               pending={isPending}
             />
           </form>
