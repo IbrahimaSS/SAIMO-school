@@ -245,6 +245,7 @@ export const getRecuDetail = cache(async (paiementId: string): Promise<RecuDetai
 export interface RecuRowDTO {
   id: string;
   numero: string;
+  eleveId: string;
   eleve: string;
   classe: string;
   montant: number;
@@ -274,6 +275,7 @@ export async function listerRecus(q?: string): Promise<RecuRowDTO[]> {
     .map((p) => ({
       id: p.id,
       numero: p.numeroRecu,
+      eleveId: p.fraisEleve.inscription.eleve.id,
       eleve: `${p.fraisEleve.inscription.eleve.prenom} ${p.fraisEleve.inscription.eleve.nom}`,
       classe: p.fraisEleve.inscription.classe.nom,
       montant: Number(p.montant),

@@ -30,6 +30,11 @@ model Etablissement {
   formatMatricule String   @default("ANNEE-SEQ")
   formatRecu      String   @default("REC-ANNEE-SEQ")
   actif           Boolean  @default(true)
+  limiteCycles    Int      @default(3) // nb de cycles (Primaire/Collège/Lycée...) inclus dans l'offre payée
+  couleurTheme    String   @default("blue")
+  degradeTheme    String   @default("blue")
+  police          String   @default("inter")
+  tailleTexte     String   @default("base")
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

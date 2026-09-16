@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useEnfants } from "@/components/parent/EnfantsProvider";
 import { LogoutButton } from "@/components/auth/LogoutButton";
+import { useCurrentUserOptional } from "@/components/providers/UserProvider";
 
 const NAV = [
   { icon: LayoutDashboard, label: "Tableau de bord", href: "/parent" },
@@ -24,6 +25,9 @@ export function ParentSidebar() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { enfants, estEleve } = useEnfants();
+  const user = useCurrentUserOptional();
+  const nomEtab = user?.etablissementNom;
+  const logo = user?.etablissementLogo;
 
   const enfantId = searchParams.get("enfant") || enfants[0]?.id || "";
   const currentEnfant = enfants.find((e) => e.id === enfantId) || enfants[0] || null;
@@ -42,11 +46,16 @@ export function ParentSidebar() {
 
       <div className="relative flex h-full flex-col">
         <div className="flex h-16 flex-shrink-0 items-center gap-3 border-b border-white/15 px-6">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20">
-            <GraduationCap className="h-5 w-5 text-white" />
-          </div>
-          <div className="leading-none">
-            <p className="font-display text-sm font-bold text-white">SAIMO</p>
+          {logo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={logo} alt={nomEtab ?? "Logo"} className="h-9 w-9 rounded-xl object-cover flex-shrink-0" />
+          ) : (
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20">
+              <GraduationCap className="h-5 w-5 text-white" />
+            </div>
+          )}
+          <div className="leading-none min-w-0">
+            <p className="font-display text-sm font-bold text-white truncate">{nomEtab ?? "SAIMO"}</p>
             <p className="text-[10px] uppercase tracking-widest text-white/60">
               {estEleve ? "Espace Élève" : "Espace Parent"}
             </p>

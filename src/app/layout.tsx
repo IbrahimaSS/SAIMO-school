@@ -3,7 +3,6 @@ import { Space_Grotesk, IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
 import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
-import { ThemeApplier } from "@/components/ThemeApplier";
 
 const displayFont = Space_Grotesk({
   subsets: ["latin"],
@@ -44,7 +43,6 @@ export default function RootLayout({
       >
         {children}
         <Toaster richColors closeButton position="top-right" />
-        <ThemeApplier />
         <ServiceWorkerRegistrar />
       </body>
     </html>

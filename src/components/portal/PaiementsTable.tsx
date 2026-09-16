@@ -2,7 +2,8 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Search, CreditCard, CheckCircle, AlertTriangle, Wallet2, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { Search, CheckCircle, AlertTriangle, Wallet2 } from "lucide-react";
 import type { FraisRowDTO } from "@/server/dal/finance";
 import type { ClasseOption } from "@/server/dal/pedagogie";
 import { actionEnregistrerPaiement } from "@/server/actions/finance";
@@ -29,7 +30,6 @@ export function PaiementsTable({
   const [filtreClasse, setFiltreClasse] = useState("Toutes");
   const [cible, setCible] = useState<FraisRowDTO | null>(null);
   const [erreur, setErreur] = useState("");
-  const [ok, setOk] = useState("");
 
   const filtered = useMemo(
     () =>
@@ -62,8 +62,8 @@ export function PaiementsTable({
       if (!r.succes) setErreur(r.erreur);
       else {
         setCible(null);
-        setOk(`Paiement encaissé — reçu ${r.data.numeroRecu}`);
-        router.refresh();
+        toast.success(`Paiement encaissé — reçu ${r.data.numeroRecu}`);
+        router.push(`/portail/recus/${r.data.paiementId}`);
       }
     });
   };
@@ -75,8 +75,6 @@ export function PaiementsTable({
         <Kpi label="Encaissé" value={formatGNF(totaux.paye)} accent="text-green-600" />
         <Kpi label="Reste à recouvrer" value={formatGNF(totaux.solde)} accent="text-orange-600" />
       </div>
-
-      {ok && <p className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">{ok}</p>}
 
       <div className="rounded-2xl border border-neutral-200 bg-white">
         <div className="flex flex-col gap-3 border-b border-neutral-100 p-5 sm:flex-row sm:items-center sm:justify-between">
@@ -124,7 +122,7 @@ export function PaiementsTable({
                   </td>
                   <td className="px-5 py-3 text-right">
                     {f.solde > 0 && f.statut !== "Annulé" && (
-                      <button onClick={() => { setOk(""); setCible(f); }} className="inline-flex items-center gap-1 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700">
+                      <button onClick={() => setCible(f)} className="inline-flex items-center gap-1 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700">
                         <Wallet2 className="h-3.5 w-3.5" /> Encaisser
                       </button>
                     )}

@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { audit, AuditAction, AuditEntite } from "@/server/logs/audit";
 import {
@@ -5,6 +6,14 @@ import {
   annulerPaiement,
   genererNumeroRecu,
 } from "@/server/repositories/paiement.repo";
+
+function estConflitNumeroRecu(e: unknown): boolean {
+  return (
+    e instanceof Prisma.PrismaClientKnownRequestError &&
+    e.code === "P2002" &&
+    (e.meta?.target as string[] | undefined)?.includes("numeroRecu") === true
+  );
+}
 
 // ─── Enregistrer un paiement ──────────────────────────────────
 
@@ -36,18 +45,29 @@ export async function enregistrerPaiement(input: EnregistrerPaiementInput) {
     );
   }
 
-  // RM-11 : numéro de reçu unique
-  const numeroRecu = await genererNumeroRecu(input.etablissementId);
-
-  const paiement = await creerPaiement({
-    fraisEleveId: input.fraisEleveId,
-    numeroRecu,
-    montant: input.montant,
-    modePaiement: input.modePaiement,
-    reference: input.reference,
-    observation: input.observation,
-    encaisseParId: input.encaisseParId,
-  });
+  // RM-11 : numéro de reçu unique — en cas de collision (deux encaissements
+  // quasi simultanés calculant le même numéro), on regénère et on réessaie.
+  const MAX_TENTATIVES = 5;
+  let numeroRecu = "";
+  let paiement;
+  for (let tentative = 1; tentative <= MAX_TENTATIVES; tentative++) {
+    numeroRecu = await genererNumeroRecu(input.etablissementId);
+    try {
+      paiement = await creerPaiement({
+        fraisEleveId: input.fraisEleveId,
+        numeroRecu,
+        montant: input.montant,
+        modePaiement: input.modePaiement,
+        reference: input.reference,
+        observation: input.observation,
+        encaisseParId: input.encaisseParId,
+      });
+      break;
+    } catch (e) {
+      if (!estConflitNumeroRecu(e) || tentative === MAX_TENTATIVES) throw e;
+    }
+  }
+  if (!paiement) throw new Error("Impossible de générer un numéro de reçu unique");
 
   // Créer le reçu associé
   const recu = await prisma.recu.create({

@@ -29,6 +29,8 @@ export function ComptaSidebar() {
   const user = useCurrentUserOptional();
   const nom = user?.name ?? "Utilisateur";
   const roleLabel = user ? libelleRole(user.role) : "Comptabilité";
+  const nomEtab = user?.etablissementNom;
+  const logo = user?.etablissementLogo;
   const isActive = (href: string) =>
     href === "/compta" ? pathname === href : pathname.startsWith(href);
 
@@ -44,11 +46,16 @@ export function ComptaSidebar() {
       <div className="relative flex flex-col h-full z-10">
         {/* Logo */}
         <div className="flex h-16 flex-shrink-0 items-center gap-3 px-6 border-b border-slate-700/60 mt-1">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-blue-500 shadow-lg shadow-violet-500/30 flex-shrink-0">
-            <Wallet className="h-4.5 w-4.5 text-white h-5 w-5" />
-          </div>
-          <div className="leading-none">
-            <p className="text-sm font-bold text-white tracking-wide">SAIMO</p>
+          {logo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={logo} alt={nomEtab ?? "Logo"} className="h-9 w-9 rounded-xl object-cover flex-shrink-0" />
+          ) : (
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-blue-500 shadow-lg shadow-violet-500/30 flex-shrink-0">
+              <Wallet className="h-4.5 w-4.5 text-white h-5 w-5" />
+            </div>
+          )}
+          <div className="leading-none min-w-0">
+            <p className="text-sm font-bold text-white tracking-wide truncate">{nomEtab ?? "SAIMO"}</p>
             <p className="text-[10px] uppercase tracking-widest text-blue-200/60">Finance & Compta</p>
           </div>
         </div>

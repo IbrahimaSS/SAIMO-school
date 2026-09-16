@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { homeForRole } from "@/auth.config";
 import { peutFaire, type Permission } from "@/server/permissions/roles";
 import { NonAutorise } from "@/server/permissions/can";
+import { resolveTheme } from "@/lib/theme";
 
 export interface SessionContext {
   utilisateurId: string;
@@ -31,6 +32,18 @@ export const requireUser = cache(async () => {
   if (!role || !etablissementId) {
     // Compte sans rattachement établissement actif : rien à afficher.
     redirect("/connexion?erreur=compte-incomplet");
+  }
+
+  // Un établissement suspendu (impayé, résiliation) bloque tout accès aux
+  // espaces de ses membres — sauf le super-admin plateforme lui-même.
+  if (role !== "SUPER_ADMIN_SAIMO") {
+    const etablissement = await prisma.etablissement.findUnique({
+      where: { id: etablissementId },
+      select: { actif: true },
+    });
+    if (!etablissement?.actif) {
+      redirect("/connexion?erreur=etablissement-suspendu");
+    }
   }
 
   return { utilisateurId: id, role, etablissementId };
@@ -70,7 +83,14 @@ export const getCurrentUserView = cache(async () => {
     }),
     prisma.etablissement.findUnique({
       where: { id: etablissementId },
-      select: { nom: true },
+      select: {
+        nom: true,
+        logo: true,
+        couleurTheme: true,
+        degradeTheme: true,
+        police: true,
+        tailleTexte: true,
+      },
     }),
   ]);
   return {
@@ -80,6 +100,10 @@ export const getCurrentUserView = cache(async () => {
     photo: u?.photo ?? null,
     role,
     etablissementNom: e?.nom ?? null,
+    etablissementLogo: e?.logo ?? null,
+    theme: resolveTheme(
+      e ?? { couleurTheme: "blue", degradeTheme: "blue", police: "inter", tailleTexte: "base" },
+    ),
   };
 });
 
@@ -91,5 +115,17 @@ export function requirePermission(role: RoleUtilisateur, permission: Permission)
     );
   }
 }
+
+/**
+ * Utilisateur SUPER_ADMIN_SAIMO (back-office plateforme, hors établissement).
+ * Contrairement à requireContext(), ne suppose ni établissement ni année scolaire.
+ */
+export const requireSuperAdmin = cache(async () => {
+  const { utilisateurId, role } = await requireUser();
+  if (role !== "SUPER_ADMIN_SAIMO") {
+    throw new NonAutorise("Accès réservé à l'administration SAIMO.");
+  }
+  return { utilisateurId, role };
+});
 
 export { homeForRole };

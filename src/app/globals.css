@@ -87,3 +87,18 @@ button:focus-visible,
     break-inside: avoid;
   }
 }
+
+/* Couleur principale de l'établissement — recolore les boutons/accents bleus
+   codés en dur dans les composants, uniquement dans les espaces connectés
+   (marqués par UserProvider via body.saimo-app). Les pages publiques du site
+   vitrine ne portent pas cette classe et gardent leur bleu SAIMO d'origine. */
+body.saimo-app [class~="bg-blue-600"] {
+  background-color: var(--saimo-primary, #2563eb) !important;
+}
+body.saimo-app [class~="hover:bg-blue-700"]:hover {
+  background-color: var(--saimo-primary, #2563eb) !important;
+  filter: brightness(0.88);
+}
+body.saimo-app [class*="shadow-blue-600"] {
+  --tw-shadow-color: var(--saimo-primary, #2563eb) !important;
+}

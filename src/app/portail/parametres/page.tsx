@@ -3,6 +3,7 @@ import { Sidebar } from "@/components/portal/Sidebar";
 import { Topbar } from "@/components/portal/Topbar";
 import { SettingsForm } from "@/components/portal/SettingsForm";
 import { getParametresEtablissement } from "@/server/dal/admin";
+import { listerTypesEvaluation } from "@/server/dal/evaluations";
 
 export const metadata: Metadata = {
   title: "Paramètres — Portail SAIMO",
@@ -10,7 +11,10 @@ export const metadata: Metadata = {
 };
 
 export default async function ParametresPage() {
-  const data = await getParametresEtablissement();
+  const [data, typesEvaluation] = await Promise.all([
+    getParametresEtablissement(),
+    listerTypesEvaluation(),
+  ]);
 
   return (
     <div className="min-h-screen bg-paper-100">
@@ -22,7 +26,11 @@ export default async function ParametresPage() {
             <h1 className="font-display text-2xl font-bold tracking-tight text-navy-900">Paramètres</h1>
             <p className="mt-1 text-sm text-ink-500">Identité de l&rsquo;établissement, apparence et année académique.</p>
           </div>
-          <SettingsForm etablissement={data.etablissement} annees={data.annees} />
+          <SettingsForm
+            etablissement={data.etablissement}
+            annees={data.annees}
+            typesEvaluation={typesEvaluation}
+          />
         </main>
       </div>
     </div>

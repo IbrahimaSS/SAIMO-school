@@ -33,7 +33,10 @@ export default async function PortailPage() {
         <Topbar />
 
         <main className="mx-auto max-w-7xl px-6 py-8 lg:px-10">
-          <div className="mb-8 rounded-2xl bg-gradient-to-r from-blue-500 to-orange-400 p-8 text-white overflow-hidden relative">
+          <div
+            className="mb-8 rounded-2xl p-8 text-white overflow-hidden relative"
+            style={{ background: `linear-gradient(to right, ${user.theme.sidebarFrom}, ${user.theme.sidebarTo})` }}
+          >
             <div className="absolute inset-0 opacity-10 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+PHBhdGggZD0iTTQwIDQwVjBIMHY0MHoiIGZpbGw9Im5vbmUiLz48cGF0aCBkPSJNMzkgNDBWMGgxdjQwek0wIDM5aDQwdjFIMHoiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMSkiLz48L3N2Zz4=')]" />
             <div className="relative">
               <p className="text-sm font-semibold uppercase tracking-[0.2em] text-white/80">

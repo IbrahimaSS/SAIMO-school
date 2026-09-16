@@ -13,6 +13,15 @@ const s = (v: FormDataEntryValue | null) => {
   return t === "" ? undefined : t;
 };
 
+/** Matricule enseignant : initiale du prénom + initiale du nom + 4 derniers chiffres du téléphone. */
+function genererMatriculeEnseignant(prenom: string, nom: string, telephone?: string): string {
+  const i1 = prenom.trim().charAt(0).toUpperCase() || "X";
+  const i2 = nom.trim().charAt(0).toUpperCase() || "X";
+  const chiffres = (telephone ?? "").replace(/\D/g, "");
+  const derniersChiffres = chiffres.slice(-4).padStart(4, "0");
+  return `${i1}${i2}${derniersChiffres}`;
+}
+
 // ─── Cycles & Niveaux ────────────────────────────────────────
 
 export async function actionCreerCycle(formData: FormData): Promise<ActionResult> {
@@ -22,6 +31,20 @@ export async function actionCreerCycle(formData: FormData): Promise<ActionResult
     const nom = s(formData.get("nom"));
     const ordre = Number(formData.get("ordre") ?? 0);
     if (!nom) return { succes: false, erreur: "Le nom du cycle est requis" };
+
+    const [etablissement, nbCycles] = await Promise.all([
+      prisma.etablissement.findUnique({
+        where: { id: ctx.etablissementId },
+        select: { limiteCycles: true },
+      }),
+      prisma.cycle.count({ where: { etablissementId: ctx.etablissementId } }),
+    ]);
+    if (nbCycles >= (etablissement?.limiteCycles ?? 0)) {
+      return {
+        succes: false,
+        erreur: `Limite de ${etablissement?.limiteCycles ?? 0} cycle(s) atteinte pour votre abonnement. Contactez SAIMO pour l'étendre.`,
+      };
+    }
 
     await prisma.cycle.create({
       data: { etablissementId: ctx.etablissementId, nom, ordre },
@@ -392,6 +415,11 @@ export async function actionCreerEnseignant(
           utilisateurId: u.id,
           etablissementId: ctx.etablissementId,
           specialite: parsed.data.specialite,
+          matricule: genererMatriculeEnseignant(
+            parsed.data.prenom,
+            parsed.data.nom,
+            parsed.data.telephone,
+          ),
         },
       });
     });
@@ -589,6 +617,56 @@ export async function actionSupprimerCreneau(id: string): Promise<ActionResult> 
     if (!cr) return { succes: false, erreur: "Créneau introuvable" };
     await prisma.creneauCours.delete({ where: { id } });
     revalidatePath("/portail/emploi-du-temps");
+    return { succes: true, data: undefined };
+  } catch (e) {
+    return { succes: false, erreur: msg(e) };
+  }
+}
+
+// ─── Types d'évaluation ────────────────────────────────────────
+
+const schemaTypeEvaluation = z.object({
+  nom: z.string().min(1, "Le nom est requis").max(60),
+  noteMaximale: z.coerce.number().positive("Barème invalide").max(1000),
+});
+
+export async function actionCreerTypeEvaluation(formData: FormData): Promise<ActionResult> {
+  try {
+    const ctx = await requireContext();
+    requirePermission(ctx.role, "classe:manage");
+
+    const parsed = schemaTypeEvaluation.safeParse({
+      nom: s(formData.get("nom")),
+      noteMaximale: formData.get("noteMaximale") || 20,
+    });
+    if (!parsed.success) {
+      return { succes: false, erreur: parsed.error.issues[0]?.message ?? "Données invalides" };
+    }
+
+    await prisma.typeEvaluation.create({
+      data: {
+        etablissementId: ctx.etablissementId,
+        nom: parsed.data.nom,
+        noteMaximale: parsed.data.noteMaximale,
+      },
+    });
+    revalidatePath("/portail/parametres");
+    return { succes: true, data: undefined };
+  } catch (e) {
+    return { succes: false, erreur: msg(e) };
+  }
+}
+
+export async function actionSupprimerTypeEvaluation(id: string): Promise<ActionResult> {
+  try {
+    const ctx = await requireContext();
+    requirePermission(ctx.role, "classe:manage");
+    const type = await prisma.typeEvaluation.findFirst({
+      where: { id, etablissementId: ctx.etablissementId },
+    });
+    if (!type) return { succes: false, erreur: "Type d'évaluation introuvable" };
+    await prisma.typeEvaluation.delete({ where: { id } });
+    revalidatePath("/portail/parametres");
     return { succes: true, data: undefined };
   } catch (e) {
     return { succes: false, erreur: msg(e) };

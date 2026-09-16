@@ -1,7 +1,6 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   LayoutDashboard, Users2, GraduationCap, School, BookMarked,
@@ -14,6 +13,7 @@ import {
 } from "lucide-react";
 import { LogoMark } from "@/components/Logo";
 import { LogoutButton } from "@/components/auth/LogoutButton";
+import { useCurrentUserOptional } from "@/components/providers/UserProvider";
 
 const NAV_SECTIONS = [
   {
@@ -72,34 +72,35 @@ const NAV_SECTIONS = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const [sidebarStyle, setSidebarStyle] = useState({});
-
-  useEffect(() => {
-    const updateColors = () => {
-      const root = document.documentElement;
-      const from = root.style.getPropertyValue("--saimo-sidebar-from") || "#2563EB";
-      const to   = root.style.getPropertyValue("--saimo-sidebar-to")   || "#3B82F6";
-      setSidebarStyle({ background: `linear-gradient(to bottom, ${from}, ${to})` });
-    };
-    updateColors();
-    window.addEventListener("saimo-theme-change", updateColors);
-    return () => window.removeEventListener("saimo-theme-change", updateColors);
-  }, []);
+  const user = useCurrentUserOptional();
+  const theme = user?.theme;
+  const nomEtab = user?.etablissementNom;
+  const logo = user?.etablissementLogo;
 
   const isActive = (href: string) =>
     href !== "#" && (pathname === href || (href !== "/portail" && pathname.startsWith(href)));
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col lg:flex overflow-hidden">
-      <div className="absolute inset-0" style={sidebarStyle} />
+      <div
+        className="absolute inset-0"
+        style={{
+          background: `linear-gradient(to bottom, ${theme?.sidebarFrom ?? "#2563EB"}, ${theme?.sidebarTo ?? "#3B82F6"})`,
+        }}
+      />
       <div className="absolute inset-0 opacity-[0.07] bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+PHBhdGggZD0iTTQwIDQwVjBIMHY0MHoiIGZpbGw9Im5vbmUiLz48cGF0aCBkPSJNMzkgNDBWMGgxdjQwek0wIDM5aDQwdjFIMHoiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMSkiLz48L3N2Zz4=')]" />
 
       <div className="relative flex flex-col h-full">
         {/* Logo */}
         <div className="flex h-16 flex-shrink-0 items-center gap-2.5 border-b border-white/15 px-6">
-          <LogoMark className="h-8 w-8" />
-          <div className="leading-none">
-            <p className="font-display text-sm font-bold text-white">SAIMO</p>
+          {logo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={logo} alt={nomEtab ?? "Logo"} className="h-8 w-8 rounded-lg object-cover" />
+          ) : (
+            <LogoMark className="h-8 w-8" />
+          )}
+          <div className="leading-none min-w-0">
+            <p className="font-display text-sm font-bold text-white truncate">{nomEtab ?? "SAIMO"}</p>
             <p className="text-[10px] uppercase tracking-widest text-white/60">Administration</p>
           </div>
         </div>

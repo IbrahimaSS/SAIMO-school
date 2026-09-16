@@ -145,6 +145,7 @@ export async function getParametresEtablissement() {
     prisma.anneeScolaire.findMany({
       where: { etablissementId },
       orderBy: { dateDebut: "desc" },
+      include: { periodes: { orderBy: { ordre: "asc" } } },
     }),
     prisma.parametre.findMany({ where: { etablissementId } }),
   ]);
@@ -154,6 +155,7 @@ export async function getParametresEtablissement() {
     etablissement: {
       nom: etab.nom,
       code: etab.code,
+      logo: etab.logo,
       telephone: etab.telephone,
       email: etab.email,
       adresse: etab.adresse,
@@ -162,6 +164,10 @@ export async function getParametresEtablissement() {
       devise: etab.devise,
       siteWeb: etab.siteWeb,
       mentionsLegales: etab.mentionsLegales,
+      couleurTheme: etab.couleurTheme,
+      degradeTheme: etab.degradeTheme,
+      police: etab.police,
+      tailleTexte: etab.tailleTexte,
     },
     annees: annees.map((a) => ({
       id: a.id,
@@ -170,6 +176,13 @@ export async function getParametresEtablissement() {
       verrouillee: a.verrouillee,
       debut: formatDateCourte(a.dateDebut),
       fin: formatDateCourte(a.dateFin),
+      periodes: a.periodes.map((p) => ({
+        id: p.id,
+        nom: p.nom,
+        active: p.active,
+        debut: formatDateCourte(p.dateDebut),
+        fin: formatDateCourte(p.dateFin),
+      })),
     })),
     parametres: params.map((p) => ({ cle: p.cle, valeur: p.valeur, description: p.description })),
   };

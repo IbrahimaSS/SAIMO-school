@@ -2,7 +2,7 @@ import type { NextAuthConfig } from "next-auth";
 import type { RoleUtilisateur } from "@prisma/client";
 
 // Préfixes d'espaces authentifiés.
-const PROTECTED_PREFIXES = ["/portail", "/compta", "/parent", "/enseignant"];
+const PROTECTED_PREFIXES = ["/portail", "/compta", "/parent", "/enseignant", "/saimo-admin"];
 // Pages de connexion (un utilisateur déjà connecté n'a rien à y faire).
 const AUTH_PAGES = ["/connexion", "/login"];
 
@@ -14,6 +14,7 @@ const matchesPrefix = (pathname: string, prefixes: string[]) =>
  * Réutilisé par le proxy, les Server Actions de connexion et les layouts de segment.
  */
 export function homeForRole(role?: string | null): string {
+  if (role === "SUPER_ADMIN_SAIMO") return "/saimo-admin";
   if (role === "COMPTABLE") return "/compta";
   if (role === "PARENT" || role === "ELEVE") return "/parent";
   if (role === "ENSEIGNANT" || role === "PROF_PRINCIPAL") return "/enseignant";

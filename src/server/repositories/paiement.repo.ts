@@ -22,18 +22,25 @@ export async function trouverPaiementsEleve(eleveId: string, etablissementId: st
 
 export async function genererNumeroRecu(etablissementId: string): Promise<string> {
   const annee = new Date().getFullYear();
-  const count = await prisma.paiement.count({
-    where: {
-      fraisEleve: {
-        inscription: { etablissementId },
+  const [count, etablissement] = await Promise.all([
+    prisma.paiement.count({
+      where: {
+        fraisEleve: {
+          inscription: { etablissementId },
+        },
+        createdAt: {
+          gte: new Date(`${annee}-01-01`),
+        },
       },
-      createdAt: {
-        gte: new Date(`${annee}-01-01`),
-      },
-    },
-  });
+    }),
+    prisma.etablissement.findUnique({ where: { id: etablissementId }, select: { code: true } }),
+  ]);
   const seq = String(count + 1).padStart(5, "0");
-  return `REC-${annee}-${seq}`;
+  // Le code établissement rend le numéro globalement unique entre écoles clientes
+  // (Paiement.numeroRecu n'est pas unique par établissement mais sur toute la
+  // plateforme) — sans ça, le tout premier reçu de chaque nouvelle école entre
+  // en collision avec celui d'une autre.
+  return `REC-${etablissement?.code ?? etablissementId}-${annee}-${seq}`;
 }
 
 export async function creerPaiement(data: {

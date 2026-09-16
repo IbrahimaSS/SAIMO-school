@@ -200,14 +200,30 @@ export async function actionBasculerUtilisateur(id: string): Promise<ActionResul
 
 // ─── Paramètres établissement ──────────────────────────────
 
+const logoSchema = z
+  .string()
+  .max(900_000, "Logo trop lourd (redimensionnez-le)")
+  .refine(
+    (v) => /^https?:\/\//.test(v) || /^data:image\/(png|jpe?g|webp|gif);base64,/.test(v),
+    "Format d'image non pris en charge",
+  )
+  .optional();
+
 export async function actionMajEtablissement(formData: FormData): Promise<ActionResult> {
   try {
     const ctx = await requireContext();
     requirePermission(ctx.role, "parametres:manage");
+
+    const logoParsed = logoSchema.safeParse(s(formData.get("logo")));
+    if (!logoParsed.success) {
+      return { succes: false, erreur: logoParsed.error.issues[0]?.message ?? "Logo invalide" };
+    }
+
     await prisma.etablissement.update({
       where: { id: ctx.etablissementId },
       data: {
         nom: s(formData.get("nom")) ?? undefined,
+        logo: logoParsed.data,
         telephone: s(formData.get("telephone")),
         email: s(formData.get("email")),
         adresse: s(formData.get("adresse")),
@@ -224,6 +240,144 @@ export async function actionMajEtablissement(formData: FormData): Promise<Action
       entite: "Etablissement",
       entiteId: ctx.etablissementId,
     });
+    revalidatePath("/portail/parametres");
+    return { succes: true, data: undefined };
+  } catch (e) {
+    return { succes: false, erreur: msg(e) };
+  }
+}
+
+const schemaApparence = z.object({
+  couleurTheme: z.enum([
+    "blue", "emerald", "violet", "orange", "slate", "rose", "cyan", "amber", "indigo", "teal",
+  ]),
+  degradeTheme: z.enum([
+    "blue", "emerald", "violet", "orange", "slate", "rose", "cyan", "amber", "indigo", "teal",
+  ]),
+  police: z.enum(["inter", "georgia", "arial", "verdana", "times"]),
+  tailleTexte: z.enum(["sm", "base", "lg"]),
+});
+
+export async function actionMajApparence(formData: FormData): Promise<ActionResult> {
+  try {
+    const ctx = await requireContext();
+    requirePermission(ctx.role, "parametres:manage");
+
+    const parsed = schemaApparence.safeParse({
+      couleurTheme: s(formData.get("couleurTheme")),
+      degradeTheme: s(formData.get("degradeTheme")),
+      police: s(formData.get("police")),
+      tailleTexte: s(formData.get("tailleTexte")),
+    });
+    if (!parsed.success) {
+      return { succes: false, erreur: "Choix invalide" };
+    }
+
+    await prisma.etablissement.update({
+      where: { id: ctx.etablissementId },
+      data: parsed.data,
+    });
+
+    revalidatePath("/portail", "layout");
+    revalidatePath("/compta", "layout");
+    revalidatePath("/parent", "layout");
+    revalidatePath("/enseignant", "layout");
+    return { succes: true, data: undefined };
+  } catch (e) {
+    return { succes: false, erreur: msg(e) };
+  }
+}
+
+// ─── Périodes (trimestres/semestres) ─────────────────────────
+
+const schemaPeriode = z.object({
+  nom: z.string().min(1, "Nom requis").max(60),
+  dateDebut: z.string().min(1, "Date de début requise"),
+  dateFin: z.string().min(1, "Date de fin requise"),
+});
+
+export async function actionCreerPeriode(
+  anneeScolaireId: string,
+  formData: FormData,
+): Promise<ActionResult> {
+  try {
+    const ctx = await requireContext();
+    requirePermission(ctx.role, "parametres:manage");
+
+    const annee = await prisma.anneeScolaire.findFirst({
+      where: { id: anneeScolaireId, etablissementId: ctx.etablissementId },
+    });
+    if (!annee) return { succes: false, erreur: "Année scolaire introuvable" };
+
+    const parsed = schemaPeriode.safeParse({
+      nom: s(formData.get("nom")),
+      dateDebut: s(formData.get("dateDebut")),
+      dateFin: s(formData.get("dateFin")),
+    });
+    if (!parsed.success) {
+      return { succes: false, erreur: parsed.error.issues[0]?.message ?? "Données invalides" };
+    }
+    const dateDebut = new Date(parsed.data.dateDebut);
+    const dateFin = new Date(parsed.data.dateFin);
+    if (dateFin <= dateDebut) {
+      return { succes: false, erreur: "La date de fin doit être après la date de début" };
+    }
+
+    const nbExistantes = await prisma.periode.count({ where: { anneeScolaireId } });
+
+    await prisma.periode.create({
+      data: {
+        anneeScolaireId,
+        nom: parsed.data.nom,
+        ordre: nbExistantes + 1,
+        dateDebut,
+        dateFin,
+        active: nbExistantes === 0,
+      },
+    });
+
+    await audit({
+      utilisateurId: ctx.utilisateurId,
+      etablissementId: ctx.etablissementId,
+      action: AuditAction.CREATE,
+      entite: "Periode",
+      apres: { nom: parsed.data.nom, anneeScolaireId },
+    });
+
+    revalidatePath("/portail/parametres");
+    return { succes: true, data: undefined };
+  } catch (e) {
+    return { succes: false, erreur: msg(e) };
+  }
+}
+
+export async function actionActiverPeriode(id: string): Promise<ActionResult> {
+  try {
+    const ctx = await requireContext();
+    requirePermission(ctx.role, "parametres:manage");
+
+    const periode = await prisma.periode.findFirst({
+      where: { id, anneeScolaire: { etablissementId: ctx.etablissementId } },
+    });
+    if (!periode) return { succes: false, erreur: "Période introuvable" };
+
+    await prisma.$transaction([
+      prisma.periode.updateMany({
+        where: { anneeScolaireId: periode.anneeScolaireId },
+        data: { active: false },
+      }),
+      prisma.periode.update({ where: { id }, data: { active: true } }),
+    ]);
+
+    await audit({
+      utilisateurId: ctx.utilisateurId,
+      etablissementId: ctx.etablissementId,
+      action: AuditAction.UPDATE,
+      entite: "Periode",
+      entiteId: id,
+      apres: { active: true },
+    });
+
     revalidatePath("/portail/parametres");
     return { succes: true, data: undefined };
   } catch (e) {

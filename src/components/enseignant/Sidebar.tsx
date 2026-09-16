@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { LogoMark } from "@/components/Logo";
 import { LogoutButton } from "@/components/auth/LogoutButton";
+import { useCurrentUserOptional } from "@/components/providers/UserProvider";
 
 const NAV = [
   { icon: LayoutDashboard, label: "Tableau de bord", href: "/enseignant" },
@@ -29,15 +30,23 @@ const NAV = [
 
 export function EnseignantSidebar() {
   const pathname = usePathname();
+  const user = useCurrentUserOptional();
+  const nomEtab = user?.etablissementNom;
+  const logo = user?.etablissementLogo;
   const isActive = (href: string) =>
     href === "/enseignant" ? pathname === href : pathname.startsWith(href);
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col overflow-hidden bg-gradient-to-b from-blue-700 to-blue-600 lg:flex">
       <div className="flex h-16 flex-shrink-0 items-center gap-2.5 border-b border-white/15 px-6">
-        <LogoMark className="h-8 w-8" />
-        <div className="leading-none">
-          <p className="font-display text-sm font-bold text-white">SAIMO</p>
+        {logo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={logo} alt={nomEtab ?? "Logo"} className="h-8 w-8 rounded-lg object-cover" />
+        ) : (
+          <LogoMark className="h-8 w-8" />
+        )}
+        <div className="leading-none min-w-0">
+          <p className="font-display text-sm font-bold text-white truncate">{nomEtab ?? "SAIMO"}</p>
           <p className="text-[10px] uppercase tracking-widest text-white/60">Enseignant</p>
         </div>
       </div>

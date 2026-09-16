@@ -29,7 +29,7 @@ const schemaPaiement = z.object({
 
 export async function actionEnregistrerPaiement(
   formData: FormData,
-): Promise<ActionResult<{ numeroRecu: string }>> {
+): Promise<ActionResult<{ numeroRecu: string; paiementId: string }>> {
   try {
     const ctx = await requireContext();
     requirePermission(ctx.role, "paiement:enregistrer");
@@ -86,7 +86,7 @@ export async function actionEnregistrerPaiement(
 
     revalidatePath("/portail/paiements");
     revalidatePath("/portail/recus");
-    return { succes: true, data: { numeroRecu: paiement.numeroRecu } };
+    return { succes: true, data: { numeroRecu: paiement.numeroRecu, paiementId: paiement.id } };
   } catch (e) {
     return { succes: false, erreur: msg(e) };
   }

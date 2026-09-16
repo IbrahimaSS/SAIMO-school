@@ -77,9 +77,9 @@ export function RecettesManager({
       if (!r.succes) {
         setErreur(r.erreur);
       } else {
-        toast.success(`Encaissement enregistré — reçu ${r.data.numeroRecu}`);
         setModal(false);
-        router.refresh();
+        toast.success(`Encaissement enregistré — reçu ${r.data.numeroRecu}`);
+        router.push(`/compta/recus/${r.data.paiementId}`);
       }
     });
   };
